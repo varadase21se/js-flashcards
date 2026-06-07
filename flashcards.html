@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Flashcards</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#ffffff;--surface:#ffffff;--surface2:#f7f7f5;--border:#e9e9e7;
+  --border2:#d4d4d0;--accent:#2383e2;--accent-bg:#e8f1fb;
+  --text:#1a1a1a;--text2:#787774;--text3:#b4b2ac;
+  --done:#0f7b55;--done-bg:#e8f5f0;
+  --rev:#c9830a;--rev-bg:#fef3e2;
+  --weak:#c4291c;--weak-bg:#fdecea;
+  --sidebar:#fbfbfa;--sidebar-w:220px;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;display:flex}
+
+/* LAYOUT */
+.layout{display:flex;width:100%;min-height:100vh}
+
+/* SIDEBAR */
+.sidebar{width:var(--sidebar-w);min-height:100vh;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar-header{padding:16px 14px 8px;display:flex;align-items:center;justify-content:space-between}
+.sidebar-title{font-size:12px;font-weight:600;color:var(--text2);letter-spacing:.04em;text-transform:uppercase}
+.sidebar-add-set{background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;line-height:1;padding:2px 4px;border-radius:4px;transition:background .1s}
+.sidebar-add-set:hover{background:var(--border);color:var(--text)}
+.sidebar-section{padding:4px 8px;margin-bottom:4px}
+.sidebar-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background .1s;position:relative}
+.sidebar-item:hover{background:var(--border)}
+.sidebar-item.active{background:#e8f1fb;color:var(--accent)}
+.sidebar-item-icon{font-size:15px;flex-shrink:0}
+.sidebar-item-name{font-size:13.5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-item-count{font-size:11px;color:var(--text3);flex-shrink:0}
+.sidebar-item.active .sidebar-item-name{color:var(--accent);font-weight:500}
+.sidebar-item.active .sidebar-item-count{color:#90b8e8}
+.sidebar-del-btn{background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;padding:2px 4px;border-radius:3px;opacity:0;transition:opacity .1s}
+.sidebar-item:hover .sidebar-del-btn{opacity:1}
+.sidebar-del-btn:hover{color:var(--weak);background:var(--weak-bg)}
+.sidebar-divider{height:1px;background:var(--border);margin:8px 14px}
+
+/* MAIN */
+.main{flex:1;max-width:660px;padding:2.5rem 2rem 3rem;margin:0 auto;min-width:0}
+
+/* TOP BAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem}
+.topbar-left h1{font-size:1.35rem;font-weight:600;color:var(--text);letter-spacing:-.02em}
+.topbar-left .subject-label{font-size:13px;color:var(--text2);margin-top:2px}
+.topbar-right{display:flex;gap:8px}
+.icon-btn{background:none;border:1px solid var(--border2);color:var(--text2);padding:5px 12px;border-radius:6px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .1s}
+.icon-btn:hover{background:var(--surface2);border-color:var(--border2);color:var(--text)}
+.add-btn{background:var(--accent);border-color:var(--accent);color:#fff}
+.add-btn:hover{background:#1a6fc4;border-color:#1a6fc4;color:#fff}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1.6rem}
+.stat{background:var(--surface2);border-radius:8px;padding:.65rem .8rem;text-align:center}
+.stat-n{font-size:1.25rem;font-weight:600;color:var(--text)}
+.stat-n.done{color:var(--done)}
+.stat-n.rev{color:var(--rev)}
+.stat-n.weak{color:var(--weak)}
+.stat-l{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* FILTER TABS */
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:1.4rem;border-bottom:1px solid var(--border);padding-bottom:0}
+.tab{padding:6px 12px;border-radius:0;border:none;background:none;color:var(--text2);font-size:13px;cursor:pointer;transition:all .1s;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab:hover:not(.active){color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:500}
+
+/* PROGRESS */
+.prog-row{display:flex;justify-content:space-between;font-size:12px;color:var(--text3);margin-bottom:6px}
+.prog-track{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:1.4rem}
+.prog-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .4s cubic-bezier(.4,0,.2,1)}
+
+/* CARD */
+.scene{perspective:1000px;height:240px;cursor:pointer;margin-bottom:.75rem;position:relative}
+.card-inner{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform .5s cubic-bezier(.4,0,.2,1)}
+.card-inner.flipped{transform:rotateY(180deg)}
+.card-face{position:absolute;inset:0;border-radius:10px;border:1px solid var(--border2);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;backface-visibility:hidden;-webkit-backface-visibility:hidden;transition:border-color .15s,box-shadow .15s}
+.scene:hover .card-face{border-color:#c0c0bb;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.card-front{background:#ffffff}
+.card-back{background:var(--surface2);transform:rotateY(180deg)}
+.card-tag{font-size:10px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.9rem;color:var(--text3)}
+.card-q-text{font-size:1.05rem;font-weight:500;text-align:center;line-height:1.6;color:var(--text)}
+.card-a-text{font-size:.92rem;text-align:center;line-height:1.7;color:var(--text2)}
+.cat-pip{position:absolute;top:12px;right:12px;font-size:11px;font-weight:500;padding:2px 8px;border-radius:4px}
+.cat-pip.done{background:var(--done-bg);color:var(--done)}
+.cat-pip.revision{background:var(--rev-bg);color:var(--rev)}
+.cat-pip.weak{background:var(--weak-bg);color:var(--weak)}
+
+/* HINT */
+.hint{text-align:center;font-size:11px;color:var(--text3);margin-bottom:.9rem}
+.kbd{display:inline-block;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:1px 5px;font-size:10px;font-family:monospace;color:var(--text2)}
+
+/* CATEGORY BUTTONS */
+.cat-row{display:flex;align-items:center;gap:6px;margin-bottom:1rem;flex-wrap:wrap}
+.cat-label{font-size:12px;color:var(--text3)}
+.cat-btn{padding:4px 11px;border-radius:5px;border:1px solid transparent;font-size:12px;font-weight:500;cursor:pointer;transition:all .1s}
+.cat-btn.done{background:var(--done-bg);color:var(--done);border-color:#b7dfd4}
+.cat-btn.done:hover,.cat-btn.done.active{background:#c5ede2;border-color:var(--done)}
+.cat-btn.revision{background:var(--rev-bg);color:var(--rev);border-color:#f5d8a0}
+.cat-btn.revision:hover,.cat-btn.revision.active{background:#fde8b8;border-color:var(--rev)}
+.cat-btn.weak{background:var(--weak-bg);color:var(--weak);border-color:#f3b8b4}
+.cat-btn.weak:hover,.cat-btn.weak.active{background:#fad4d2;border-color:var(--weak)}
+.cat-btn.clear{background:var(--surface2);color:var(--text2);border-color:var(--border2)}
+.cat-btn.clear:hover{background:var(--border);color:var(--text)}
+.cat-btn.active{box-shadow:0 0 0 2px currentColor}
+
+/* NAV */
+.nav-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
+.nav-btn{padding:6px 18px;border-radius:6px;border:1px solid var(--border2);background:none;color:var(--text2);font-size:13px;cursor:pointer;transition:all .1s}
+.nav-btn:hover:not(:disabled){background:var(--surface2);color:var(--text);border-color:var(--border2)}
+.nav-btn:disabled{opacity:.3;cursor:not-allowed}
+.card-counter{font-size:13px;color:var(--text3)}
+
+/* EMPTY */
+.empty{text-align:center;padding:3rem 1rem;color:var(--text3);font-size:13px;height:240px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;border:1.5px dashed var(--border2);border-radius:10px;margin-bottom:.75rem}
+
+/* MODAL OVERLAY — fixed position is fine for the real app; for this file we use a faux overlay */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;z-index:999}
+.modal{background:#fff;border-radius:10px;padding:1.6rem;width:min(460px,92vw);border:1px solid var(--border2);box-shadow:0 8px 30px rgba(0,0,0,.12)}
+.modal h2{font-size:.95rem;font-weight:600;color:var(--text);margin-bottom:1.2rem}
+.field{margin-bottom:.9rem}
+.field label{display:block;font-size:12px;color:var(--text2);margin-bottom:5px;font-weight:500}
+.field textarea,.field input,.field select{width:100%;padding:7px 10px;border-radius:6px;border:1px solid var(--border2);background:#fff;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;outline:none;transition:border .1s}
+.field textarea:focus,.field input:focus,.field select:focus{border-color:var(--accent)}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:1.2rem}
+.modal-btns button{padding:6px 16px;border-radius:6px;font-size:13px;cursor:pointer;transition:all .1s}
+.modal-btns .save{background:var(--accent);color:#fff;border:none}
+.modal-btns .save:hover{background:#1a6fc4}
+.modal-btns .cancel{background:none;border:1px solid var(--border2);color:var(--text2)}
+.modal-btns .cancel:hover{background:var(--surface2)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+const DEFAULT_SUBJECTS = [
+  { id: "js", name: "JavaScript", icon: "📄" },
+];
+
+const DEFAULT_CARDS = [
+  { id:1,  subject:"js", q:"What is a closure in JavaScript?",                       a:"A function that retains access to variables from its outer scope, even after the outer function has returned.",                                      category:"none" },
+  { id:2,  subject:"js", q:"What is the difference between == and ===?",             a:"== does type coercion before comparing. === checks value AND type strictly with no coercion at all.",                                               category:"none" },
+  { id:3,  subject:"js", q:"What does Array.prototype.map() return?",                a:"A new array of the same length, where each element is the result of calling the callback on the original element.",                                  category:"none" },
+  { id:4,  subject:"js", q:"What is event bubbling?",                                a:"When an event fires on a child element, it propagates up through parent elements in the DOM tree, triggering their listeners.",                      category:"none" },
+  { id:5,  subject:"js", q:"What is the purpose of 'use strict'?",                   a:"Enables strict mode: prevents undeclared variables, disables unsafe features, and throws errors for silent mistakes.",                               category:"none" },
+  { id:6,  subject:"js", q:"What is a Promise?",                                     a:"An object representing the eventual completion or failure of an async operation. States: pending, fulfilled, rejected.",                             category:"none" },
+  { id:7,  subject:"js", q:"What is the difference between var, let, and const?",    a:"var is function-scoped and hoisted. let is block-scoped and reassignable. const is block-scoped and cannot be reassigned (objects remain mutable).", category:"none" },
+  { id:8,  subject:"js", q:"What does Array.prototype.reduce() do?",                 a:"Applies a reducer function to each element, accumulating a single output value. Useful for sums, flattening, or grouping.",                         category:"none" },
+  { id:9,  subject:"js", q:"What is the event loop?",                                a:"A mechanism that processes the call stack and task queues to enable non-blocking async behavior in JavaScript's single-threaded runtime.",           category:"none" },
+  { id:10, subject:"js", q:"What is prototypal inheritance?",                        a:"Objects inherit properties and methods from a prototype object. Lookups traverse the prototype chain until found or undefined.",                      category:"none" },
+  { id:11, subject:"js", q:"What does async / await do?",                            a:"Syntactic sugar over Promises. async marks a function as returning a Promise; await pauses execution until that Promise resolves.",                  category:"none" },
+  { id:12, subject:"js", q:"What is the difference between null and undefined?",     a:"undefined means a variable was declared but not assigned. null is an intentional, explicit absence of a value set by the developer.",               category:"none" },
+  { id:13, subject:"js", q:"What is hoisting in JavaScript?",                        a:"JavaScript's behavior of moving declarations (not initializations) to the top of their scope before execution. var and function declarations are hoisted.", category:"none" },
+  { id:14, subject:"js", q:"What is the difference between call(), apply(), bind()?",a:"call() invokes with individual args. apply() invokes with an array of args. bind() returns a new function with 'this' permanently bound.",           category:"none" },
+  { id:15, subject:"js", q:"What is a higher-order function?",                       a:"A function that takes another function as an argument, or returns a function as its result. Examples: map, filter, reduce.",                        category:"none" },
+];
+
+const CATS = {
+  done:     { label:"Done",     color:"done" },
+  revision: { label:"Revision", color:"revision" },
+  weak:     { label:"Weak",     color:"weak" },
+  none:     { label:"Untagged", color:"none" },
+};
+
+const FILTER_TABS = [
+  { key:"all",      label:"All" },
+  { key:"done",     label:"Done" },
+  { key:"revision", label:"Revision" },
+  { key:"weak",     label:"Weak" },
+  { key:"none",     label:"Untagged" },
+];
+
+const SUBJECT_ICONS = ["📄","🧮","🔬","📐","💡","🌍","📚","🎯","🧪","💻","🗂️","⚙️"];
+
+function loadState() {
+  try {
+    const s = localStorage.getItem("jsfcards_v3");
+    if (s) return JSON.parse(s);
+  } catch {}
+  return { cards: DEFAULT_CARDS, subjects: DEFAULT_SUBJECTS };
+}
+function saveState(st) {
+  try { localStorage.setItem("jsfcards_v3", JSON.stringify(st)); } catch {}
+}
+
+function ProgressBar({ current, total, filterLabel }) {
+  const pct = total === 0 ? 0 : Math.round((current / total) * 100);
+  return (
+    <>
+      <div className="prog-row">
+        <span>{pct}% — {filterLabel}</span>
+        <span>{total === 0 ? "0 of 0" : `${current + 1} of ${total}`}</span>
+      </div>
+      <div className="prog-track">
+        <div className="prog-fill" style={{ width: `${pct}%` }} />
+      </div>
+    </>
+  );
+}
+
+function FlashCard({ card, flipped, onFlip }) {
+  const pipClass = card.category !== "none" ? card.category : null;
+  const pipLabel = card.category === "done" ? "✓ Done" : card.category === "revision" ? "↺ Revision" : card.category === "weak" ? "⚠ Weak" : "";
+  return (
+    <div className="scene" onClick={onFlip} role="button" aria-label={flipped ? "Click to see question" : "Click to see answer"}>
+      <div className={`card-inner ${flipped ? "flipped" : ""}`}>
+        <div className="card-face card-front">
+          {pipClass && <span className={`cat-pip ${pipClass}`}>{pipLabel}</span>}
+          <p className="card-tag">Question</p>
+          <p className="card-q-text">{card.q}</p>
+        </div>
+        <div className="card-face card-back">
+          <p className="card-tag">Answer</p>
+          <p className="card-a-text">{card.a}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatsBar({ cards }) {
+  const total    = cards.length;
+  const done     = cards.filter(c => c.category === "done").length;
+  const revision = cards.filter(c => c.category === "revision").length;
+  const weak     = cards.filter(c => c.category === "weak").length;
+  return (
+    <div className="stats">
+      <div className="stat"><div className="stat-n">{total}</div><div className="stat-l">Total</div></div>
+      <div className="stat"><div className="stat-n done">{done}</div><div className="stat-l">Done</div></div>
+      <div className="stat"><div className="stat-n rev">{revision}</div><div className="stat-l">Revision</div></div>
+      <div className="stat"><div className="stat-n weak">{weak}</div><div className="stat-l">Weak</div></div>
+    </div>
+  );
+}
+
+function AddCardModal({ onClose, onSave, subjects, defaultSubject }) {
+  const [q, setQ] = useState("");
+  const [a, setA] = useState("");
+  const [cat, setCat] = useState("none");
+  const [sub, setSub] = useState(defaultSubject || subjects[0]?.id || "");
+
+  const submit = () => {
+    if (!q.trim() || !a.trim()) { alert("Please fill in both the question and answer."); return; }
+    onSave({ q: q.trim(), a: a.trim(), category: cat, subject: sub });
+    onClose();
+  };
+
+  return (
+    <div className="overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <h2>New flashcard</h2>
+        <div className="field">
+          <label>Subject</label>
+          <select value={sub} onChange={e => setSub(e.target.value)}>
+            {subjects.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
+          </select>
+        </div>
+        <div className="field">
+          <label>Question</label>
+          <textarea rows={3} value={q} onChange={e => setQ(e.target.value)} placeholder="e.g. What is a pure function?" autoFocus />
+        </div>
+        <div className="field">
+          <label>Answer</label>
+          <textarea rows={4} value={a} onChange={e => setA(e.target.value)} placeholder="e.g. A function with no side effects…" />
+        </div>
+        <div className="field">
+          <label>Initial category</label>
+          <select value={cat} onChange={e => setCat(e.target.value)}>
+            <option value="none">Untagged</option>
+            <option value="done">Done</option>
+            <option value="revision">Revision</option>
+            <option value="weak">Weak</option>
+          </select>
+        </div>
+        <div className="modal-btns">
+          <button className="cancel" onClick={onClose}>Cancel</button>
+          <button className="save" onClick={submit}>Save card</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddSubjectModal({ onClose, onSave }) {
+  const [name, setName] = useState("");
+  const [icon, setIcon] = useState("📄");
+
+  const submit = () => {
+    if (!name.trim()) { alert("Enter a subject name."); return; }
+    onSave({ name: name.trim(), icon });
+    onClose();
+  };
+
+  return (
+    <div className="overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <h2>New subject</h2>
+        <div className="field">
+          <label>Icon</label>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:4 }}>
+            {SUBJECT_ICONS.map(ic => (
+              <button key={ic} onClick={() => setIcon(ic)} style={{
+                fontSize:18, padding:"4px 6px", borderRadius:6, cursor:"pointer",
+                border: icon === ic ? "2px solid #2383e2" : "1px solid #e9e9e7",
+                background: icon === ic ? "#e8f1fb" : "none"
+              }}>{ic}</button>
+            ))}
+          </div>
+        </div>
+        <div className="field">
+          <label>Subject name</label>
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Data Structures" autoFocus />
+        </div>
+        <div className="modal-btns">
+          <button className="cancel" onClick={onClose}>Cancel</button>
+          <button className="save" onClick={submit}>Create</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [state, setState] = useState(loadState);
+  const [activeSubject, setActiveSubject] = useState(state.subjects[0]?.id || "js");
+  const [filter, setFilter] = useState("all");
+  const [idx, setIdx] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const [showAddCard, setShowAddCard] = useState(false);
+  const [showAddSubject, setShowAddSubject] = useState(false);
+
+  const { cards, subjects } = state;
+
+  const subjectCards = cards.filter(c => c.subject === activeSubject);
+  const filtered = filter === "all" ? subjectCards : subjectCards.filter(c => c.category === filter);
+  const card = filtered[idx] || null;
+
+  useEffect(() => { saveState(state); }, [state]);
+  useEffect(() => { setIdx(0); setFlipped(false); }, [filter, activeSubject]);
+
+  const go = useCallback((dir) => {
+    const next = Math.max(0, Math.min(idx + dir, filtered.length - 1));
+    if (next === idx) return;
+    setFlipped(false);
+    setTimeout(() => setIdx(next), 60);
+  }, [idx, filtered.length]);
+
+  const markCat = useCallback((cat) => {
+    if (!card) return;
+    setState(prev => ({ ...prev, cards: prev.cards.map(c => c.id === card.id ? { ...c, category: cat } : c) }));
+  }, [card]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      const tag = e.target.tagName;
+      if (tag === "TEXTAREA" || tag === "INPUT" || tag === "SELECT") return;
+      if (e.key === "ArrowLeft")  go(-1);
+      if (e.key === "ArrowRight") go(+1);
+      if (e.key === " ") { e.preventDefault(); setFlipped(f => !f); }
+      if (e.key === "1") markCat("done");
+      if (e.key === "2") markCat("revision");
+      if (e.key === "3") markCat("weak");
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [go, markCat]);
+
+  const addCard = (newCard) => {
+    setState(prev => ({ ...prev, cards: [...prev.cards, { ...newCard, id: Date.now() }] }));
+  };
+
+  const addSubject = ({ name, icon }) => {
+    const id = name.toLowerCase().replace(/\s+/g, "_") + "_" + Date.now();
+    setState(prev => ({ ...prev, subjects: [...prev.subjects, { id, name, icon }] }));
+    setActiveSubject(id);
+  };
+
+  const deleteSubject = (id) => {
+    if (!window.confirm("Delete this subject and all its cards?")) return;
+    setState(prev => ({
+      ...prev,
+      subjects: prev.subjects.filter(s => s.id !== id),
+      cards: prev.cards.filter(c => c.subject !== id),
+    }));
+    if (activeSubject === id) {
+      const remaining = state.subjects.filter(s => s.id !== id);
+      setActiveSubject(remaining[0]?.id || "");
+    }
+  };
+
+  const activeSubjectObj = subjects.find(s => s.id === activeSubject);
+  const filterLabel = FILTER_TABS.find(t => t.key === filter)?.label || "All";
+
+  return (
+    <div className="layout">
+      {/* SIDEBAR */}
+      <div className="sidebar">
+        <div className="sidebar-header">
+          <span className="sidebar-title">Subjects</span>
+          <button className="sidebar-add-set" onClick={() => setShowAddSubject(true)} title="New subject">＋</button>
+        </div>
+        <div className="sidebar-section">
+          {subjects.map(s => {
+            const count = cards.filter(c => c.subject === s.id).length;
+            return (
+              <div key={s.id} className={`sidebar-item ${activeSubject === s.id ? "active" : ""}`} onClick={() => setActiveSubject(s.id)}>
+                <span className="sidebar-item-icon">{s.icon}</span>
+                <span className="sidebar-item-name">{s.name}</span>
+                <span className="sidebar-item-count">{count}</span>
+                {subjects.length > 1 && (
+                  <button className="sidebar-del-btn" onClick={e => { e.stopPropagation(); deleteSubject(s.id); }} title="Delete">×</button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {subjects.length === 0 && (
+          <p style={{ fontSize:12, color:"var(--text3)", padding:"0 14px" }}>No subjects yet. Click + to add one.</p>
+        )}
+      </div>
+
+      {/* MAIN */}
+      <div className="main">
+        {/* Top Bar */}
+        <div className="topbar">
+          <div className="topbar-left">
+            <h1>{activeSubjectObj ? `${activeSubjectObj.icon} ${activeSubjectObj.name}` : "Flashcards"}</h1>
+            <div className="subject-label">{subjectCards.length} card{subjectCards.length !== 1 ? "s" : ""} in this set</div>
+          </div>
+          <div className="topbar-right">
+            <button className="icon-btn add-btn" onClick={() => setShowAddCard(true)}>＋ Add card</button>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <StatsBar cards={subjectCards} />
+
+        {/* Filter Tabs */}
+        <div className="tabs">
+          {FILTER_TABS.map(t => (
+            <button key={t.key} className={`tab ${filter === t.key ? "active" : ""}`} onClick={() => setFilter(t.key)}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Progress */}
+        <ProgressBar current={idx} total={filtered.length} filterLabel={filterLabel} />
+
+        {/* Card */}
+        {card ? (
+          <FlashCard card={card} flipped={flipped} onFlip={() => setFlipped(f => !f)} />
+        ) : (
+          <div className="empty">
+            <span style={{ fontSize:"1.8rem" }}>🃏</span>
+            No cards here yet.<br/>
+            {filter !== "all" ? "Switch filter or add cards to this category." : "Click '+ Add card' to get started."}
+          </div>
+        )}
+
+        {/* Keyboard Hint */}
+        <p className="hint">
+          <span className="kbd">Space</span> flip &nbsp;·&nbsp;
+          <span className="kbd">←</span> <span className="kbd">→</span> navigate &nbsp;·&nbsp;
+          <span className="kbd">1</span> Done &nbsp;
+          <span className="kbd">2</span> Revision &nbsp;
+          <span className="kbd">3</span> Weak
+        </p>
+
+        {/* Category Buttons */}
+        {card && (
+          <div className="cat-row">
+            <span className="cat-label">Mark as:</span>
+            {["done", "revision", "weak"].map(k => (
+              <button key={k} className={`cat-btn ${k} ${card.category === k ? "active" : ""}`} onClick={() => markCat(k)}>
+                {k === "done" ? "✓ Done" : k === "revision" ? "↺ Revision" : "⚠ Weak"}
+              </button>
+            ))}
+            {card.category !== "none" && (
+              <button className="cat-btn clear" onClick={() => markCat("none")}>Clear</button>
+            )}
+          </div>
+        )}
+
+        {/* Navigation */}
+        <div className="nav-row">
+          <button className="nav-btn" onClick={() => go(-1)} disabled={idx === 0 || !card}>‹ Prev</button>
+          <span className="card-counter">{filtered.length === 0 ? "—" : `${idx + 1} / ${filtered.length}`}</span>
+          <button className="nav-btn" onClick={() => go(+1)} disabled={idx >= filtered.length - 1 || !card}>Next ›</button>
+        </div>
+      </div>
+
+      {/* Modals */}
+      {showAddCard && (
+        <AddCardModal
+          onClose={() => setShowAddCard(false)}
+          onSave={addCard}
+          subjects={subjects}
+          defaultSubject={activeSubject}
+        />
+      )}
+      {showAddSubject && (
+        <AddSubjectModal onClose={() => setShowAddSubject(false)} onSave={addSubject} />
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
+
+
